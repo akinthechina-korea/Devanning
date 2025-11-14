@@ -88,10 +88,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // 프로덕션 환경에서 데이터베이스 초기화 (서버 시작 전에 완료)
+  // 프로덕션 환경에서 데이터베이스 초기화 (서버 시작 전에 반드시 완료)
   if (process.env.NODE_ENV === "production") {
     try {
-      console.log("🔧 프로덕션 환경: 데이터베이스 초기화 시작...");
+      console.log("🔧 프로덕션 환경: 데이터베이스 초기화 시작 (서버 시작 전 필수)...");
       
       if (!process.env.DATABASE_URL) {
         throw new Error("DATABASE_URL 환경 변수가 설정되지 않았습니다.");
@@ -101,13 +101,9 @@ app.use((req, res, next) => {
       console.log(`📊 DATABASE_URL: ${process.env.DATABASE_URL.substring(0, 30)}...`);
       
       // 런타임 데이터베이스 초기화 (테이블 생성 및 초기 데이터)
+      // 서버 시작 전에 반드시 완료되어야 함 (타임아웃 없이 대기)
       const { ensureDatabaseInitialized } = await import("./init-database");
-      await Promise.race([
-        ensureDatabaseInitialized(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("DB 초기화 타임아웃 (60초)")), 60000)
-        )
-      ]);
+      await ensureDatabaseInitialized();
       
       console.log("✅ 데이터베이스 초기화 완료 - 서버 시작");
     } catch (error: any) {
