@@ -22,15 +22,18 @@
 
 1. Render 대시보드 → "New +" → "Web Service"
 2. GitHub 저장소 연결: `akinthechina-korea/Devanning`
-3. 기본 설정:
+3. **중요**: 기본 설정에서 다음을 반드시 확인하세요:
    - **Name**: `devanning` (또는 원하는 이름)
    - **Region**: `Singapore`
    - **Branch**: `main`
    - **Root Directory**: (기본값, 비워둠)
-   - **Runtime**: `Node`
+   - **Runtime**: `Node` ⚠️ **반드시 Node로 설정** (Go가 아닌)
    - **Build Command**: `npm install && npm run build`
    - **Start Command**: `npm start`
    - **Plan**: `Free`
+
+**참고**: `render.yaml` 파일이 프로젝트에 포함되어 있어 자동으로 설정됩니다. 
+만약 자동 감지가 안 되면 위 설정을 수동으로 입력하세요.
 
 #### 3단계: 환경 변수 설정
 
