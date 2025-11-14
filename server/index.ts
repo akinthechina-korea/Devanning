@@ -163,10 +163,11 @@ app.use((req, res, next) => {
   
   server.listen(port, "0.0.0.0", () => {
     log(`✅ 서버가 포트 ${port}에서 실행 중입니다`);
-    console.log(`✅ 서버가 포트 ${port}에서 실행 중입니다`);
+    console.log(`🚀 Server running on port ${port}`);
+    console.log(`✅ Health check: http://localhost:${port}/health`);
     
     // 프로덕션 환경에서 데이터베이스 초기화 상태 확인
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV === "production" && process.env.SKIP_DB_INIT !== "true") {
       console.log("✅ 데이터베이스 초기화는 백그라운드에서 진행 중입니다...");
     }
   });
