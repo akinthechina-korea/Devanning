@@ -628,7 +628,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { username, password } = req.body;
       
+      console.log(`[LOGIN] 로그인 시도: username=${username}`);
+      
       if (!username || !password) {
+        console.log(`[LOGIN] 실패: 사용자명 또는 비밀번호 누락`);
         return res.status(400).json({ error: "사용자명과 비밀번호를 입력하세요." });
       }
       
@@ -636,6 +639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [user] = await db.select().from(users).where(eq(users.username, username)).limit(1);
       
       if (!user) {
+        console.log(`[LOGIN] 실패: 사용자를 찾을 수 없음 - username=${username}`);
         return res.status(401).json({ error: "사용자명 또는 비밀번호가 올바르지 않습니다." });
       }
       
@@ -643,6 +647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isValidPassword = await bcrypt.compare(password, user.passwordHash);
       
       if (!isValidPassword) {
+        console.log(`[LOGIN] 실패: 비밀번호 불일치 - username=${username}`);
         return res.status(401).json({ error: "사용자명 또는 비밀번호가 올바르지 않습니다." });
       }
       
@@ -651,14 +656,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.username = user.username;
       req.session.role = user.role;
       
+      console.log(`[LOGIN] 성공: username=${username}, role=${user.role}`);
       res.json({
         id: user.id,
         username: user.username,
         role: user.role,
       });
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "로그인 중 오류가 발생했습니다." });
+    } catch (error: any) {
+      console.error("[LOGIN] 오류 발생:", {
+        error: error?.message || String(error),
+        stack: error?.stack,
+        username: req.body?.username,
+      });
+      res.status(500).json({ 
+        error: "로그인 중 오류가 발생했습니다.",
+        details: process.env.NODE_ENV === "development" ? error?.message : undefined
+      });
     }
   });
   

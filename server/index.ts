@@ -88,8 +88,20 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // 프로덕션 환경에서 데이터베이스 초기화
+  if (process.env.NODE_ENV === "production") {
+    const { ensureDatabaseInitialized } = await import("./init-database");
+    await ensureDatabaseInitialized();
+  }
+
   // 초기 관리자 계정 생성
   await import("./init-admin");
+  
+  // Keep-Alive 시작 (프로덕션만)
+  if (process.env.NODE_ENV === "production") {
+    const { startKeepAlive } = await import("./keep-alive");
+    startKeepAlive();
+  }
   
   const server = await registerRoutes(app);
 
