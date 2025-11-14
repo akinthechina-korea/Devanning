@@ -92,18 +92,35 @@ app.use((req, res, next) => {
   if (process.env.NODE_ENV === "production") {
     try {
       console.log("🔧 프로덕션 환경: 데이터베이스 초기화 시작...");
-      const { ensureDatabaseInitialized } = await import("./init-database");
-      // 타임아웃 없이 실행 (최대 60초 대기)
-      await Promise.race([
-        ensureDatabaseInitialized(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("DB 초기화 타임아웃 (60초)")), 60000)
-        )
-      ]);
+      console.log("✅ DATABASE_URL이 설정되어 있습니다.");
+      
+      // 먼저 drizzle-kit push로 스키마 적용 시도
+      try {
+        console.log("📦 Drizzle 스키마 푸시 시도...");
+        const { execSync } = await import("child_process");
+        execSync("npx drizzle-kit push", { 
+          stdio: "inherit",
+          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
+          timeout: 30000 
+        });
+        console.log("✅ Drizzle 스키마 푸시 완료");
+      } catch (drizzleError: any) {
+        console.log("⚠️ Drizzle 스키마 푸시 실패, 런타임 초기화로 전환:", drizzleError?.message || drizzleError);
+        // Drizzle 실패 시 런타임 초기화로 폴백
+        const { ensureDatabaseInitialized } = await import("./init-database");
+        await Promise.race([
+          ensureDatabaseInitialized(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("DB 초기화 타임아웃 (60초)")), 60000)
+          )
+        ]);
+      }
+      
       console.log("✅ 데이터베이스 초기화 완료 - 서버 시작");
     } catch (error: any) {
       console.error("❌ 데이터베이스 초기화 실패:", error?.message || error);
       console.error("⚠️ 서버는 계속 실행되지만 데이터베이스 기능이 작동하지 않을 수 있습니다.");
+      console.error("💡 수동 초기화: Render Shell에서 'npm run db:init' 실행");
       // 에러가 발생해도 서버는 계속 실행 (수동으로 초기화 가능)
     }
   }
