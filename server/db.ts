@@ -1,7 +1,6 @@
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool, neonConfig } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "@shared/schema";
-import ws from "ws";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set");
@@ -35,8 +34,10 @@ function convertDatabaseUrl(url: string): string {
 
 const databaseUrl = convertDatabaseUrl(process.env.DATABASE_URL);
 
-// Configure WebSocket for Neon
-neonConfig.webSocketConstructor = ws;
+// 일반 PostgreSQL 연결 풀 생성 (Render PostgreSQL용)
+export const pool = new Pool({ 
+  connectionString: databaseUrl,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+});
 
-export const pool = new Pool({ connectionString: databaseUrl });
 export const db = drizzle(pool, { schema });
