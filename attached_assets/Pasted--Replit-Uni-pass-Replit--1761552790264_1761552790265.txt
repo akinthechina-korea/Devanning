@@ -1,0 +1,434 @@
+유니패스 화물추적 앱 Replit 개발 가이드이 문서는 관세청 유니패스(Uni-pass)의 '화물통관진행정보'를 조회하는 웹 애플리케이션을 Replit에서 개발하기 위한 가이드입니다.1. 프로젝트 개요이 앱은 사용자가 B/L 번호와 연도를 입력하면, 관세청 API를 통해 3가지 정보(기본정보, 컨테이너 내역, 입항보고 내역)를 조회하여 하나의 화면에 보여줍니다.이 앱은 2개의 부분으로 구성된 '풀스택(Fullstack)' 구조입니다.프론트엔드 (Frontend): index.html사용자가 실제로 보는 화면입니다. (B/L 번호 입력창, 조회 버튼, 결과 테이블)사용자의 웹 브라우저에서 실행됩니다.백엔드 (Backend): server.js사용자 눈에 보이지 않는 '서버' 프로그램입니다.Replit 서버에서 24시간 실행됩니다.사장님의 API 인증키를 안전하게 보관하고, 보안(CORS) 문제를 해결하며 관세청 서버와 실제 통신하는 핵심 역할을 합니다.2. 핵심 작동 원리 (CORS 문제 해결)가장 중요한 질문은 "왜 2개의 파일로 복잡하게 만드나요?"입니다.이유: 웹 브라우저의 CORS (Cross-Origin Resource Sharing) 보안 정책 때문입니다.실패하는 방식 (HTML 단독):index.html (사용자 PC)에서 관세청 서버(unipass.go.kr)로 데이터를 바로 요청하면, 브라우저가 보안 위협으로 간주하여 100% 차단합니다.(이것이 아까 우리가 '실패'를 테스트해 본 이유입니다.)성공하는 방식 (백엔드 사용):[사용자] 가 index.html에서 '조회' 버튼을 누릅니다.[HTML] 이 관세청이 아닌, '우리 서버'(server.js)에게 "이 B/L 번호 좀 조회해 줘"라고 요청합니다.[Server.js] 가 요청을 받고, 숨겨둔 API 인증키와 B/L 번호를 가지고 **'관세청 API'**에 데이터를 요청합니다. (서버끼리의 통신은 CORS 보안 정책에 걸리지 않습니다.)[관세청 API] 가 server.js에게 화물 정보를 (JSON 데이터로) 보내줍니다.[Server.js] 가 이 데이터를 받아서 index.html에게 "여기 데이터 가져왔어"라고 안전하게 전달합니다.[HTML] 이 받은 데이터를 화면에 예쁘게 표시합니다.3. Replit 실행 단계개발자는 Replit에서 다음 단계를 순서대로 진행하면 됩니다.Replit에 로그인한 후, [+ Create Repl] 버튼을 누릅니다.템플릿(Template) 검색창에서 **'Node.js'**를 선택하고 Repl을 생성합니다.파일 목록에서 index.js는 삭제하거나 무시합니다.[+ Add file] 버튼을 눌러 index.html 파일과 server.js 파일을 생성합니다.아래 [4. 코드 파일] 섹션에 있는 2개의 코드를 각각 복사하여 index.html과 server.js에 붙여넣습니다.Replit 왼쪽 메뉴의 'Shell' 탭 (명령 프롬프트 모양)을 엽니다.Shell 창에 다음 명령어를 입력하고 엔터(Enter)를 쳐서 서버에 필요한 부품을 설치합니다.npm install express axios cors
+설치가 완료되면, Replit 상단의 [Run] 버튼을 누릅니다.server.js가 실행되면서 Replit 오른쪽의 웹뷰(WebView) 창에 index.html 화면이 자동으로 나타납니다.B/L 번호(ONEYRICFFD909400)와 연도(2025년)를 확인하고 '조회' 버튼을 누르면, 오류 없이 데이터가 정상적으로 표시됩니다.4. 코드 파일4.1. index.html (프론트엔드)<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>유니패스 화물진행정보 조회</title>
+    <!-- Tailwind CSS 로드 -->
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <style>
+        /* Inter 폰트 적용 */
+        @import url('[https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap](https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap)');
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+        }
+        /* 테이블 스타일 헬퍼 */
+        .info-table th {
+            @apply bg-gray-100 p-3 text-sm font-semibold text-gray-700 text-left;
+        }
+        .info-table td {
+            @apply bg-white p-3 text-sm text-gray-900;
+        }
+        .section-title {
+            @apply text-xl font-bold text-gray-800 pb-2 mb-4 border-b border-gray-300;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
+        
+        <!-- 1. 조회 섹션 -->
+        <div class="bg-slate-700 p-6">
+            <h1 class="text-2xl font-bold text-white mb-4">화물진행정보 조회</h1>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <!-- B/L 번호 입력 -->
+                <div class="flex-grow">
+                    <label for="blNumber" class="text-sm font-medium text-gray-200 block mb-1">M B/L - H B/L</label>
+                    <input type="text" id="blNumber" value="ONEYRICFFD909400" class="w-full px-4 py-3 rounded-md shadow-sm border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="B/L 번호를 입력하세요">
+                </div>
+                <!-- 연도 선택 -->
+                <div>
+                    <label for="blYear" class="text-sm font-medium text-gray-200 block mb-1">연도</label>
+                    <select id="blYear" class="w-full sm:w-auto px-4 py-3 rounded-md shadow-sm border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 h-[50px]">
+                        <option>2025년</option>
+                        <option>2024년</option>
+                        <option>2023년</option>
+                    </select>
+                </div>
+                <!-- 조회 버튼 -->
+                <div class="self-end">
+                    <button id="searchButton" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-md shadow-md transition-colors h-[50px] flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        조회
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. 로딩 및 메시지 영역 -->
+        <div id="messageArea" class="p-6 text-center" style="display: none;">
+            <!-- 로딩 스피너 -->
+            <div id="loading" class="flex justify-center items-center">
+                <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-blue-600" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="text-lg font-medium text-gray-700">데이터를 조회하는 중입니다...</span>
+            </div>
+            <!-- 오류 메시지 -->
+            <div id="error" class="text-red-600 font-semibold" style="display: none;"></div>
+        </div>
+        
+        <!-- 3. 결과 표시 영역 -->
+        <div id="resultsArea" class="p-6 space-y-8" style="display: none;">
+            
+            <!-- 섹션 1: 기본 화물진행정보 -->
+            <section id="basicInfo">
+                <h2 class="section-title">기본 화물진행정보</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-px overflow-hidden rounded-lg border border-gray-200">
+                    <table class="info-table w-full">
+                        <tbody>
+                            <tr>
+                                <th>화물관리번호</th>
+                                <td id="info-cargo-id"></td>
+                            </tr>
+                            <tr>
+                                <th>M B/L - H B/L</th>
+                                <td id="info-bl-no"></td>
+                            </tr>
+                            <tr>
+                                <th>통관진행상태</th>
+                                <td id="info-status" class="font-bold text-blue-700"></td>
+                            </tr>
+                            <tr>
+                                <th>품명</th>
+                                <td id="info-item-name"></td>
+                            </tr>
+                            <tr>
+                                <th>포장개수</th>
+                                <td id="info-pkg-count"></td>
+                            </tr>
+                            <tr>
+                                <th>용적</th>
+                                <td id="info-volume"></td>
+                            </tr>
+                            <tr>
+                                <th>관리대상지정여부</th>
+                                <td id="info-mgmt-target"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="info-table w-full">
+                        <tbody>
+                            <tr>
+                                <th>선사/항공사</th>
+                                <td id="info-carrier"></td>
+                            </tr>
+                            <tr>
+                                <th>화물구분</th>
+                                <td id="info-cargo-type"></td>
+                            </tr>
+                            <tr>
+                                <th>처리일시</th>
+                                <td id="info-date"></td>
+                            </tr>
+                            <tr>
+                                <th>선박국적</th>
+                                <td id="info-ship-nat"></td>
+                            </tr>
+                            <tr>
+                                <th>총 중량</th>
+                                <td id="info-weight"></td>
+                            </tr>
+                            <tr>
+                                <th>B/L유형</th>
+                                <td id="info-bl-type"></td>
+                            </tr>
+                            <tr>
+                                <th>컨테이너개수</th>
+                                <td id="info-container-count"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 섹션 2: 컨테이너 내역 -->
+            <section id="containerInfo">
+                <h2 class="section-title">컨테이너 내역</h2>
+                <div class="overflow-x-auto rounded-lg border border-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase">컨테이너 번호</th>
+                                <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase">봉인 번호</th>
+                                <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase">규격</th>
+                                <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase">포장 개수</th>
+                                <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase">중량 (KG)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="container-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- JS로 내용 채움 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 섹션 3: 입항보고 내역 -->
+            <section id="arrivalInfo">
+                <h2 class="section-title">입항보고 내역 (처리단계)</h2>
+                <div class="overflow-x-auto rounded-lg border border-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase">진행상태</th>
+                                <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase">처리일시</th>
+                                <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase">장소</th>
+                                <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase">세관</th>
+                            </tr>
+                        </thead>
+                        <tbody id="arrival-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- JS로 내용 채움 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // --- HTML 요소 선택 ---
+        const searchButton = document.getElementById("searchButton");
+        const messageArea = document.getElementById("messageArea");
+        const loading = document.getElementById("loading");
+        const error = document.getElementById("error");
+        const resultsArea = document.getElementById("resultsArea");
+
+        // --- '조회' 버튼 클릭 이벤트 ---
+        searchButton.addEventListener("click", async () => {
+            // 1. 이전 결과 숨기고 로딩 표시
+            resultsArea.style.display = "none";
+            error.style.display = "none";
+            messageArea.style.display = "block";
+            loading.style.display = "flex";
+
+            // 2. 입력값 가져오기
+            const blNumberInput = document.getElementById("blNumber").value;
+            const blYearSelect = document.getElementById("blYear");
+            const blYearInput = blYearSelect.options[blYearSelect.selectedIndex].text.replace('년', '');
+
+            // 3. *** '우리 서버(server.js)'에 API 호출 요청 ***
+            // Replit에서 실행되면, Replit이 제공하는 URL로 요청합니다.
+            // 여기서는 상대 경로('/api/track')를 사용합니다.
+            const requestUrl = `/api/track?mblNo=${blNumberInput}&blYy=${blYearInput}`;
+
+            try {
+                // 우리 서버에 데이터를 요청합니다.
+                const response = await fetch(requestUrl);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `서버 오류: ${response.status}`);
+                }
+
+                // 서버가 전달해준 관세청 데이터를 받습니다.
+                const data = await response.json();
+
+                // 4. 데이터 표시 (관세청 응답 구조에 맞춰야 함)
+                const formattedData = parseApiResponse(data); // 데이터를 HTML에 맞게 변환
+                displayResults(formattedData);
+
+                // 5. 로딩 숨기기
+                loading.style.display = "none";
+                messageArea.style.display = "none";
+
+            } catch (err) {
+                // 3. 에러 표시
+                loading.style.display = "none";
+                
+                let errorMessage = `[조회 실패] ${err.message}.`;
+                
+                if (err.message.includes("Failed to fetch")) {
+                    errorMessage += "\n\n[원인] 'server.js'가 실행 중이지 않거나 Replit 서버에 문제가 있습니다.";
+                }
+
+                error.textContent = errorMessage;
+                error.style.whiteSpace = "pre-wrap"; // 줄바꿈 표시
+                error.style.display = "block";
+            }
+        });
+
+        // --- API 응답을 displayResults가 이해하는 형식으로 변환하는 함수 ---
+        function parseApiResponse(apiData) {
+            // 서버에서 받은 원본 데이터를 파싱합니다.
+            const basic = apiData.cargCsclPrcsInfoQryVo || {};
+            const containers = apiData.cargCsclPrcsInfoDtlVOList || [];
+            const history = apiData.prgsSttsInfoVOList || [];
+
+            // API 응답이 비어있는지 확인
+            if (Object.keys(basic).length === 0 && containers.length === 0 && history.length === 0) {
+                 throw new Error("조회된 데이터가 없습니다. B/L 번호나 연도를 확인하세요.");
+            }
+
+            return {
+                basicInfo: {
+                    cargoId: basic.cargMtNo || "정보 없음",
+                    blNo: `${basic.mblNo || ""} - ${basic.hblNo || ""}`,
+                    status: basic.csclPrgsStts || "정보 없음",
+                    itemName: basic.prnm || "정보 없음",
+                    pkgCount: `${basic.pckGcnt || ""} ${basic.pckUt || ""}`,
+                    volume: basic.vlm || "정보 없음",
+                    mgmtTarget: basic.mngtTrgtCargYn || "정보 없음",
+                    carrier: basic.shcoFlco || "정보 없음",
+                    cargoType: basic.cargTpNm || "정보 없음", // cargTp -> cargTpNm 으로 변경 (이름)
+                    date: basic.prcsDttm || "정보 없음",
+                    shipNat: basic.shipNatNm || "정보 없음",
+                    weight: `${basic.wght || ""} ${basic.wghtUt || ""}`,
+                    blType: basic.blPtNm || "정보 없음",
+                    containerCount: basic.cntrGcnt || "정보 없음"
+                },
+                containers: containers.map(c => ({
+                    id: c.cntrNo || "정보 없음",
+                    sealNo: c.sealNo || "정보 없음",
+                    spec: c.cntrTpszNm || "정보 없음",
+                    pkg: c.pckGcnt || "정보 없음",
+                    weight: c.wght || "정보 없음"
+                })),
+                arrivalHistory: history.map(h => ({
+                    status: h.prgsStts || "정보 없음",
+                    date: h.prcsDttm || "정보 없음",
+                    location: h.prprPlce || "정보 없음",
+                   customs: h.cstm || "정보 없음"
+                }))
+            };
+        }
+
+
+        // --- 결과를 화면에 표시하는 함수 ---
+        function displayResults(data) {
+            // 섹션 1: 기본 정보 채우기
+            document.getElementById("info-cargo-id").textContent = data.basicInfo.cargoId;
+            document.getElementById("info-bl-no").textContent = data.basicInfo.blNo;
+            document.getElementById("info-status").textContent = data.basicInfo.status;
+            document.getElementById("info-item-name").textContent = data.basicInfo.itemName;
+            document.getElementById("info-pkg-count").textContent = data.basicInfo.pkgCount;
+            document.getElementById("info-volume").textContent = data.basicInfo.volume;
+            document.getElementById("info-mgmt-target").textContent = data.basicInfo.mgmtTarget;
+            document.getElementById("info-carrier").textContent = data.basicInfo.carrier;
+            document.getElementById("info-cargo-type").textContent = data.basicInfo.cargoType;
+            document.getElementById("info-date").textContent = data.basicInfo.date;
+            document.getElementById("info-ship-nat").textContent = data.basicInfo.shipNat;
+            document.getElementById("info-weight").textContent = data.basicInfo.weight;
+            document.getElementById("info-bl-type").textContent = data.basicInfo.blType;
+            document.getElementById("info-container-count").textContent = data.basicInfo.containerCount;
+
+            // 섹션 2: 컨테이너 내역 채우기
+            const containerBody = document.getElementById("container-table-body");
+            containerBody.innerHTML = ""; // 기존 내용 삭제
+            if (data.containers && data.containers.length > 0) {
+                data.containers.forEach(c => {
+                    containerBody.innerHTML += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-3 text-sm text-gray-800">${c.id}</td>
+                            <td class="p-3 text-sm text-gray-700">${c.sealNo}</td>
+                            <td class="p-3 text-sm text-gray-700">${c.spec}</td>
+                            <td class="p-3 text-sm text-gray-700">${c.pkg}</td>
+                            <td class="p-3 text-sm text-gray-700">${c.weight}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                containerBody.innerHTML = '<tr><td colspan="5" class="p-3 text-center text-gray-500">컨테이너 내역이 없습니다.</td></tr>';
+            }
+
+            // 섹션 3: 입항보고 내역 채우기
+            const arrivalBody = document.getElementById("arrival-table-body");
+            arrivalBody.innerHTML = ""; // 기존 내용 삭제
+            if (data.arrivalHistory && data.arrivalHistory.length > 0) {
+                data.arrivalHistory.forEach(h => {
+                    arrivalBody.innerHTML += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-3 text-sm font-medium text-gray-800">${h.status}</td>
+                            <td class="p-3 text-sm text-gray-700">${h.date}</td>
+                            <td class="p-3 text-sm text-gray-700">${h.location}</td>
+                            <td class="p-3 text-sm text-gray-700">${h.customs}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                arrivalBody.innerHTML = '<tr><td colspan="4" class="p-3 text-center text-gray-500">입항보고 내역이 없습니다.</td></tr>';
+            }
+
+            // 전체 결과 영역 표시
+            resultsArea.style.display = "block";
+        }
+    </script>
+</body>
+</html>
+4.2. server.js (백엔드)// --- 필요한 라이브러리 설치 ---
+// Replit의 'Shell' 탭에서 아래 3개를 설치해야 합니다.
+// npm install express axios cors
+// ------------------------------
+
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
+const path = require('path'); // index.html을 서빙하기 위해 필요
+
+const app = express();
+const port = 3000; // Replit은 이 포트를 자동으로 감지합니다.
+
+// --- 설정 ---
+// 1. CORS 설정: 모든 도메인에서의 요청을 허용합니다. (Replit 환경에 적합)
+app.use(cors()); 
+
+// 2. ★★★ 여기에 사장님의 API 인증키를 입력하세요 ★★★
+// (추후 Replit의 'Secrets' 기능으로 숨기는 것을 권장합니다)
+const API_KEY = "Ejz9yF2LmKZvzld2mx42z8gcl9k5UtnkkzD7Hi6CV1g9BMotxnvZWnRpYp3VZ87t6ehQgOw9NECB5L5%2BBP066Q%3D%3D";
+
+// 3. 관세청 API 주소
+const UNIPASS_API_URL = "[https://unipass.customs.go.kr/customs-cargCsclPrcsInfo/openApi/serviceList](https://unipass.customs.go.kr/customs-cargCsclPrcsInfo/openApi/serviceList)";
+
+// --- API 라우터 (접속 통로) 생성 ---
+// 'index.html'이 /api/track 으로 접속하면 이 코드가 실행됨
+app.get('/api/track', async (req, res) => {
+    
+    // 1. index.html에서 보낸 B/L 번호와 연도를 받음
+    const { mblNo, blYy } = req.query;
+
+    if (!mblNo || !blYy) {
+        return res.status(400).json({ error: "mblNo(B/L번호)와 blYy(연도)가 필요합니다." });
+    }
+
+    // 2. 관세청 API에 보낼 파라미터 준비
+    const params = {
+        'crky': API_KEY,      // 서버에 숨겨둔 API 키 사용
+        'mblNo': mblNo,
+        'hblNo': '',          // H B/L은 비워둠
+        'blYy': blYy,
+        'cargTp': '2'         // 화물구분 (2: 수입)
+    };
+
+    try {
+        // 3. 서버가 '대신' 관세청 API를 호출 (CORS 오류가 발생하지 않음)
+        const response = await axios.get(UNIPASS_API_URL, { params });
+
+        // 4. 관세청에서 받은 데이터를 'index.html'로 그대로 전달
+        res.json(response.data);
+
+    } catch (error) {
+        // 5. 오류 처리
+        console.error("관세청 API 호출 오류:", error.message);
+        res.status(500).json({ error: "관세청 API 서버에서 오류가 발생했습니다." });
+    }
+});
+
+// --- 프론트엔드 서빙 (index.html) ---
+// Replit에서 'Run'을 눌렀을 때 'index.html'을 보여주기 위한 설정입니다.
+app.use(express.static(__dirname)); // 현재 폴더의 파일들을 서빙
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// --- 서버 실행 ---
+app.listen(port, () => {
+    console.log(`==================================================`);
+    console.log(`  화물추적 백엔드 서버가 시작되었습니다.`);
+    console.log(`  'index.html' 파일을 브라우저에서 열어 테스트하세요.`);
+    console.log(`==================================================`);
+});
+5. (선택) API 인증키 보안 강화지금은 server.js 코드에 인증키가 그대로 노출되어 있습니다.테스트용으로는 괜찮지만, 이 Replit을 다른 사람에게 공개할 경우 키가 유출될 수 있습니다.해결책: Replit의 "Secrets" 기능 사용Replit 왼쪽 메뉴에서 자물쇠 모양의 'Secrets' 아이콘을 클릭합니다.Key 란에 API_KEY 라고 입력합니다.Value 란에 사장님의 인증키 (Ejz9yF...6Q==)를 붙여넣습니다.[+ Add new secret] 버튼을 누릅니다.server.js 파일의 17번째 줄을 다음과 같이 수정합니다.기존 코드:const API_KEY = "Ejz9yF2L...BP066Q%3D%3D";
+변경할 코드: (process.env를 사용)const API_KEY = process.env.API_KEY;
+이렇게 하면 코드가 유출되어도 인증키는 안전하게 보호됩니다.

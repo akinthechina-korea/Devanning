@@ -1,0 +1,364 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* LIGHT MODE */
+:root {
+  --button-outline: rgba(0,0,0, .10);
+  --badge-outline: rgba(0,0,0, .05);
+
+  /* Automatic computation of border around primary / danger buttons */
+  --opaque-button-border-intensity: -8; /* In terms of percentages */
+
+  /* Backgrounds applied on top of other backgrounds when hovered/active */
+  --elevate-1: rgba(0,0,0, .03);
+  --elevate-2: rgba(0,0,0, .08);
+
+  --background: 0 0% 98%;
+
+  --foreground: 222 47% 11%;
+
+  --border: 214 32% 91%;
+
+  --card: 0 0% 100%;
+
+  --card-foreground: 222 47% 11%;
+
+  --card-border: 214 20% 94%;
+
+  --sidebar: 218 14% 95%;
+
+  --sidebar-foreground: 222 47% 11%;
+
+  --sidebar-border: 214 14% 89%;
+
+  --sidebar-primary: 217 91% 60%;
+
+  --sidebar-primary-foreground: 0 0% 98%;
+
+  --sidebar-accent: 214 12% 87%;
+
+  --sidebar-accent-foreground: 222 47% 11%;
+
+  --sidebar-ring: 217 91% 60%;
+
+  --popover: 0 0% 96%;
+
+  --popover-foreground: 222 47% 11%;
+
+  --popover-border: 214 20% 90%;
+
+  --primary: 217 91% 60%;
+
+  --primary-foreground: 0 0% 98%;
+
+  --secondary: 214 12% 89%;
+
+  --secondary-foreground: 222 47% 11%;
+
+  --muted: 214 16% 92%;
+
+  --muted-foreground: 215 16% 47%;
+
+  --accent: 214 18% 91%;
+
+  --accent-foreground: 222 47% 11%;
+
+  --destructive: 0 84% 60%;
+
+  --destructive-foreground: 0 0% 98%;
+
+  --input: 214 32% 82%;
+  --ring: 217 91% 60%;
+  --chart-1: 217 91% 60%;
+  --chart-2: 221 83% 53%;
+  --chart-3: 212 95% 44%;
+  --chart-4: 199 89% 48%;
+  --chart-5: 187 85% 53%;
+
+  --font-sans: 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', system-ui, -apple-system, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: .5rem; /* 8px */
+  --shadow-2xs: 0px 1px 2px 0px hsl(220 10% 10% / 0.03);
+  --shadow-xs: 0px 1px 3px 0px hsl(220 10% 10% / 0.05);
+  --shadow-sm: 0px 2px 4px -1px hsl(220 10% 10% / 0.06), 0px 1px 2px -1px hsl(220 10% 10% / 0.06);
+  --shadow: 0px 4px 6px -1px hsl(220 10% 10% / 0.08), 0px 2px 4px -1px hsl(220 10% 10% / 0.06);
+  --shadow-md: 0px 6px 12px -2px hsl(220 10% 10% / 0.10), 0px 3px 6px -2px hsl(220 10% 10% / 0.08);
+  --shadow-lg: 0px 10px 20px -4px hsl(220 10% 10% / 0.12), 0px 4px 8px -2px hsl(220 10% 10% / 0.08);
+  --shadow-xl: 0px 16px 32px -6px hsl(220 10% 10% / 0.14), 0px 6px 12px -3px hsl(220 10% 10% / 0.10);
+  --shadow-2xl: 0px 24px 48px -12px hsl(220 10% 10% / 0.18);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+
+  /* Automatically computed borders - intensity can be controlled by the user by the --opaque-button-border-intensity setting */
+
+  /* Fallback for older browsers */
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --primary-border: hsl(var(--primary));
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --secondary-border: hsl(var(--secondary));
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --muted-border: hsl(var(--muted));
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --accent-border: hsl(var(--accent));
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --destructive-border: hsl(var(--destructive));
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
+.dark {
+  --button-outline: rgba(255,255,255, .10);
+  --badge-outline: rgba(255,255,255, .05);
+
+  --opaque-button-border-intensity: 9;  /* In terms of percentages */
+
+  /* Backgrounds applied on top of other backgrounds when hovered/active */
+  --elevate-1: rgba(255,255,255, .04);
+  --elevate-2: rgba(255,255,255, .09);
+
+  --background: 222 47% 11%;
+
+  --foreground: 210 40% 96%;
+
+  --border: 217 33% 17%;
+
+  --card: 222 47% 13%;
+
+  --card-foreground: 210 40% 96%;
+
+  --card-border: 217 33% 15%;
+
+  --sidebar: 222 47% 15%;
+
+  --sidebar-foreground: 210 40% 96%;
+
+  --sidebar-border: 217 33% 18%;
+
+  --sidebar-primary: 217 91% 60%;
+
+  --sidebar-primary-foreground: 0 0% 98%;
+
+  --sidebar-accent: 217 24% 20%;
+
+  --sidebar-accent-foreground: 210 40% 96%;
+
+  --sidebar-ring: 217 91% 60%;
+
+  --popover: 222 47% 16%;
+
+  --popover-foreground: 210 40% 96%;
+
+  --popover-border: 217 33% 19%;
+
+  --primary: 217 91% 60%;
+
+  --primary-foreground: 0 0% 98%;
+
+  --secondary: 217 20% 19%;
+
+  --secondary-foreground: 210 40% 96%;
+
+  --muted: 217 18% 18%;
+
+  --muted-foreground: 215 20% 65%;
+
+  --accent: 217 16% 20%;
+
+  --accent-foreground: 210 40% 96%;
+
+  --destructive: 0 72% 51%;
+
+  --destructive-foreground: 0 0% 98%;
+
+  --input: 217 33% 25%;
+  --ring: 217 91% 60%;
+  --chart-1: 217 91% 65%;
+  --chart-2: 221 83% 63%;
+  --chart-3: 212 95% 58%;
+  --chart-4: 199 89% 60%;
+  --chart-5: 187 85% 63%;
+
+  --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.12);
+  --shadow-xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.18);
+  --shadow-sm: 0px 2px 4px -1px hsl(0 0% 0% / 0.20), 0px 1px 2px -1px hsl(0 0% 0% / 0.16);
+  --shadow: 0px 4px 6px -1px hsl(0 0% 0% / 0.24), 0px 2px 4px -1px hsl(0 0% 0% / 0.18);
+  --shadow-md: 0px 6px 12px -2px hsl(0 0% 0% / 0.28), 0px 3px 6px -2px hsl(0 0% 0% / 0.22);
+  --shadow-lg: 0px 10px 20px -4px hsl(0 0% 0% / 0.32), 0px 4px 8px -2px hsl(0 0% 0% / 0.24);
+  --shadow-xl: 0px 16px 32px -6px hsl(0 0% 0% / 0.36), 0px 6px 12px -3px hsl(0 0% 0% / 0.28);
+  --shadow-2xl: 0px 24px 48px -12px hsl(0 0% 0% / 0.42);
+
+  /* Fallback for older browsers */
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --primary-border: hsl(var(--primary));
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --secondary-border: hsl(var(--secondary));
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --muted-border: hsl(var(--muted));
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --accent-border: hsl(var(--accent));
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --destructive-border: hsl(var(--destructive));
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+
+  /* Hide ugly search cancel button in Chrome until we can style it properly */
+  input[type="search"]::-webkit-search-cancel-button {
+    @apply hidden;
+  }
+
+  /* Placeholder styling for contentEditable div */
+  [contenteditable][data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: hsl(var(--muted-foreground));
+    pointer-events: none;
+  }
+
+  .no-default-hover-elevate {}
+
+  .no-default-active-elevate {}
+
+  .toggle-elevate::before,
+  .toggle-elevate-2::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0px;
+    border-radius: inherit;
+    z-index: -1;
+  }
+
+  .toggle-elevate.toggle-elevated::before {
+    background-color: var(--elevate-2);
+  }
+
+  .border.toggle-elevate::before {
+    inset: -1px;
+  }
+
+  .hover-elevate:not(.no-default-hover-elevate),
+  .active-elevate:not(.no-default-active-elevate),
+  .hover-elevate-2:not(.no-default-hover-elevate),
+  .active-elevate-2:not(.no-default-active-elevate) {
+    position: relative;
+    z-index: 0;
+  }
+
+  .hover-elevate:not(.no-default-hover-elevate)::after,
+  .active-elevate:not(.no-default-active-elevate)::after,
+  .hover-elevate-2:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:not(.no-default-active-elevate)::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0px;
+    border-radius: inherit;
+    z-index: 999;
+  }
+
+  .hover-elevate:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate:active:not(.no-default-active-elevate)::after {
+    background-color: var(--elevate-1);
+  }
+
+  .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:active:not(.no-default-active-elevate)::after {
+    background-color: var(--elevate-2);
+  }
+
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
+    inset: -1px;
+  }
+}
+
+/* 화면에서는 인쇄용 영역 숨김 */
+.print-only {
+  display: none;
+}
+
+/* 인쇄 전용 스타일 */
+@media print {
+  /* 인쇄용 영역만 표시 */
+  .print-only {
+    display: block !important;
+  }
+  
+  /* 화면용 요소 숨김 */
+  .no-print {
+    display: none !important;
+  }
+  
+  /* A4 최대화 설정 */
+  @page {
+    size: A4 portrait;
+    margin: 0mm;
+  }
+  
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+  
+  /* 인쇄 영역 A4 전체 채우기 */
+  #print-area {
+    width: 210mm !important;
+    height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    page-break-inside: avoid !important;
+  }
+  
+  /* 필드 배경 투명 */
+  #print-area [style*="background"] {
+    background-color: transparent !important;
+    background-image: none !important;
+  }
+}

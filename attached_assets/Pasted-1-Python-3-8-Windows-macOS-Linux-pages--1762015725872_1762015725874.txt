@@ -1,0 +1,261 @@
+1) 준비물 & 폴더 구성
+
+Python 3.8+ 설치 (Windows/macOS/Linux 모두 가능)
+
+이미지 파일을 한 폴더에 모으기: 예를 들어 pages/
+
+권장 파일명: 0001.jpg, 0002.jpg, … 3000.jpg 처럼 자연 정렬이 되도록 자릿수 맞추기
+
+PNG도 가능하지만, 용량이 크면 JPG로 바꾸는 게 유리
+
+폴더 예시:
+
+project/
+ ├─ merge_images_to_pdf.py   # (아래 올인원 스크립트)
+ └─ pages/
+     ├─ 0001.jpg
+     ├─ 0002.jpg
+     └─ ...
+
+2) 필수 라이브러리 설치
+pip install img2pdf pillow tqdm
+
+
+img2pdf: 무손실에 가깝게, 아주 빠르게 이미지→PDF (이미지를 메모리에 모두 올리지 않고 스트리밍 처리)
+
+Pillow: RGBA(투명 PNG) → RGB 변환, JPG 재압축 등 전처리에 사용
+
+tqdm: 진행률 표시
+
+회사/개인 PC 정책상 전역 설치가 어렵다면 python -m venv .venv && .venv\Scripts\activate(Windows) 또는 source .venv/bin/activate(macOS/Linux)로 가상환경을 만든 뒤 설치하세요.
+
+3) 페이지 크기/해상도 선택 가이드
+
+원본 크기 유지(기본): 각 이미지의 픽셀 크기를 그대로 PDF의 포인트로 매핑. 가장 빠르고 선명함.
+
+A4로 맞추기(옵션): 인쇄용이면 A4/Letter 등 고정 크기로 강제 배치 가능.
+
+여백/맞춤(옵션): 꽉 채우기(fill) / 여백 유지(contain) 선택 가능.
+
+대용량(3000장)에서도 img2pdf는 낮은 메모리 사용으로 안정적입니다.
+
+4) 속도/용량 최적화 팁
+
+JPG 권장: PNG(특히 스크린샷)는 용량이 큼 → quality=85~92로 JPG 변환 시 용량 크게 절감, 시각적 차이 적음.
+
+사전 압축 후 병합: PNG→JPG로 한 번 변환한 뒤 PDF 병합하면 최종 PDF 용량이 확 줄어듭니다.
+
+디스크 속도가 병목인 경우가 많으니, SSD를 사용하고 로컬 드라이브에서 처리하세요.
+
+5) 실패·오류 대처
+
+투명 PNG(RGBA): PDF는 일반적으로 투명 픽셀을 지원하지 않으므로 RGB로 변환 필요 → 아래 올인원 스크립트가 자동 처리
+
+파일명 정렬 꼬임: 1.jpg, 10.jpg, 2.jpg처럼 되면 페이지 순서 뒤죽박죽 → 자릿수 맞추거나 자연 정렬 적용(아래 스크립트 내장)
+
+권한/경로 문제: 출력 PDF를 열어둔 상태에서 덮어쓰면 실패. 저장 경로에 한글/공백 괜찮지만, 너무 긴 경로는 피하기
+
+메모리 부족?: img2pdf는 스트리밍이어서 일반적으로 드뭅니다. 그래도 문제면 배치(분권) 병합 후 Ghostscript/pdftk로 최종 합치기 권장.
+
+6) 실행 방법(요약)
+
+아래 올인원 스크립트를 merge_images_to_pdf.py로 저장
+
+pages/ 폴더에 이미지 넣기
+
+터미널에서 실행:
+
+python merge_images_to_pdf.py
+
+
+결과: output/merged_3000pages.pdf
+
+7) (선택) 인쇄용 A4 강제, 여백/맞춤 정책
+
+A4 강제: 모든 페이지 크기를 A4로 통일
+
+맞춤 정책
+
+contain(기본): 이미지 비율 유지, 남는 부분 여백
+
+fill: 꽉 채우되 잘릴 수 있음
+
+아래 스크립트의 설정 섹션에서 손쉽게 바꿀 수 있게 했습니다.
+
+🔥 실무용 올인원 스크립트 (한 블록)
+
+자연 정렬 / RGBA→RGB 자동 변환 / PNG→JPG 사전 압축(옵션) / A4 강제(옵션) / 진행률표시 / 예외처리 포함
+
+import os
+import re
+import sys
+from io import BytesIO
+from typing import List, Tuple
+
+import img2pdf
+from PIL import Image
+from tqdm import tqdm
+
+# =========================
+# 🔧 설정 (필요시만 조정)
+# =========================
+INPUT_DIR = "pages"                    # 이미지가 들어있는 폴더
+OUTPUT_DIR = "output"                  # 결과 PDF 저장 폴더
+OUTPUT_PDF = "merged_3000pages.pdf"    # 결과 파일명
+
+ALLOW_EXT = (".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff")
+
+# (옵션1) 인쇄용으로 A4 강제 맞춤할지 여부
+FORCE_A4 = False    # True면 모든 페이지를 A4로 강제
+A4_WIDTH_MM = 210
+A4_HEIGHT_MM = 297
+FIT_POLICY = "contain"  # "contain" or "fill"
+
+# (옵션2) PNG/WEBP 등을 JPG로 사전 변환하여 용량 줄이기
+PRECOMPRESS_TO_JPG = False
+JPG_QUALITY = 88  # 75~92 권장
+
+# (옵션3) 너무 큰 이미지를 사전에 리사이즈(예: 긴 변 3000px)
+MAX_LONG_EDGE = None  # 예: 3000  (None이면 리사이즈 안함)
+
+# =========================
+# 👇 구현부 (수정 불필요)
+# =========================
+
+def natural_key(s: str):
+    # "page12.jpg" -> ["page", 12, ".jpg"]로 분해하여 사람처럼 정렬
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", s)]
+
+def list_images(input_dir: str, allow_ext: Tuple[str, ...]) -> List[str]:
+    files = []
+    for name in os.listdir(input_dir):
+        if name.lower().endswith(allow_ext):
+            files.append(os.path.join(input_dir, name))
+    files.sort(key=lambda p: natural_key(os.path.basename(p)))
+    return files
+
+def ensure_dir(path: str):
+    os.makedirs(path, exist_ok=True)
+
+def convert_rgba_to_rgb(im: Image.Image) -> Image.Image:
+    if im.mode in ("RGBA", "LA"):
+        bg = Image.new("RGB", im.size, (255, 255, 255))
+        bg.paste(im, mask=im.split()[-1])
+        return bg
+    elif im.mode != "RGB":
+        return im.convert("RGB")
+    return im
+
+def resize_if_needed(im: Image.Image) -> Image.Image:
+    if MAX_LONG_EDGE is None:
+        return im
+    w, h = im.size
+    long_edge = max(w, h)
+    if long_edge <= MAX_LONG_EDGE:
+        return im
+    scale = MAX_LONG_EDGE / long_edge
+    new_size = (int(w * scale), int(h * scale))
+    return im.resize(new_size, Image.LANCZOS)
+
+def precompress_to_jpg(path: str) -> bytes:
+    with Image.open(path) as im:
+        im = convert_rgba_to_rgb(im)
+        im = resize_if_needed(im)
+        bio = BytesIO()
+        im.save(bio, format="JPEG", quality=JPG_QUALITY, optimize=True, progressive=True)
+        return bio.getvalue()
+
+def load_as_rgb_bytes(path: str) -> bytes:
+    """PNG/WEBP의 투명·색공간 문제를 방지하면서 JPEG로 메모리 상 변환(무손실 아님).
+       PRECOMPRESS_TO_JPG=False면 원본 포맷 유지(BMP/TIFF 제외)"""
+    ext = os.path.splitext(path)[1].lower()
+    if PRECOMPRESS_TO_JPG or ext in (".webp", ".tif", ".tiff"):
+        return precompress_to_jpg(path)
+    # JPEG/PNG 등은 원본 그대로 바이트로 읽되, RGBA는 Pillow로 RGB 변환
+    # 단, img2pdf는 PNG 알파 지원이 제한적이므로 안전하게 처리
+    with Image.open(path) as im:
+        if im.mode in ("RGBA", "LA") or ext in (".png",):
+            im = convert_rgba_to_rgb(im)
+            im = resize_if_needed(im)
+            bio = BytesIO()
+            # PNG를 그대로 넣고 싶다면 여기서 PNG로 저장 가능하지만
+            # 호환성/용량을 위해 JPEG로 저장
+            im.save(bio, format="JPEG", quality=JPG_QUALITY, optimize=True, progressive=True)
+            return bio.getvalue()
+    # 알파가 없고 JPEG라면 원본 바이트 사용
+    with open(path, "rb") as f:
+        return f.read()
+
+def get_layout_fun():
+    if not FORCE_A4:
+        return None
+    page_w = img2pdf.mm_to_pt(A4_WIDTH_MM)
+    page_h = img2pdf.mm_to_pt(A4_HEIGHT_MM)
+    size = (page_w, page_h)
+
+    if FIT_POLICY == "fill":
+        # 이미지를 페이지에 꽉 채우되 잘릴 수 있음
+        return img2pdf.get_layout_fun(size, img2pdf.ImageFit.fill)
+    # 기본: 비율 유지, 남는 공간 여백
+    return img2pdf.get_layout_fun(size, img2pdf.ImageFit.contain)
+
+def main():
+    if not os.path.isdir(INPUT_DIR):
+        print(f"❌ 입력 폴더가 없습니다: {INPUT_DIR}")
+        sys.exit(1)
+
+    ensure_dir(OUTPUT_DIR)
+    out_path = os.path.join(OUTPUT_DIR, OUTPUT_PDF)
+
+    images = list_images(INPUT_DIR, ALLOW_EXT)
+    if not images:
+        print(f"❌ 이미지가 없습니다: {INPUT_DIR} (확장자: {', '.join(ALLOW_EXT)})")
+        sys.exit(1)
+
+    print(f"📂 입력 폴더: {INPUT_DIR}")
+    print(f"🖼️  이미지 개수: {len(images)}")
+    print(f"📄 출력 파일: {out_path}")
+    if FORCE_A4:
+        print(f"📐 페이지 크기: A4 {A4_WIDTH_MM}×{A4_HEIGHT_MM}mm, fit={FIT_POLICY}")
+    if PRECOMPRESS_TO_JPG:
+        print(f"🗜️  사전 압축: JPG quality={JPG_QUALITY}")
+    if MAX_LONG_EDGE:
+        print(f"🔧 리사이즈: 긴 변 {MAX_LONG_EDGE}px")
+
+    # 개별 이미지를 메모리에 전부 올리지 않고, 한 장씩 처리하여 스트리밍 변환
+    bytes_list = []
+    for p in tqdm(images, desc="Converting", unit="img"):
+        try:
+            img_bytes = load_as_rgb_bytes(p)
+            bytes_list.append(img_bytes)
+        except Exception as e:
+            print(f"\n⚠️ 변환 실패: {p} -> {e}")
+            sys.exit(1)
+
+    layout_fun = get_layout_fun()
+
+    try:
+        with open(out_path, "wb") as f:
+            if layout_fun:
+                f.write(img2pdf.convert(bytes_list, layout_fun=layout_fun))
+            else:
+                f.write(img2pdf.convert(bytes_list))
+    except Exception as e:
+        print(f"❌ PDF 병합 실패: {e}")
+        sys.exit(1)
+
+    print(f"✅ 완료: {out_path}")
+
+if __name__ == "__main__":
+    main()
+
+8) 대량(수만 장) 처리 시 전략
+
+**분권(예: 500장씩)**으로 나눠 여러 PDF 생성 → 마지막에 pdftk/qpdf/Ghostscript로 최종 병합
+
+예:
+
+pdftk part_*.pdf cat output merged.pdf
+
+
+이 방식은 실패 지점 복구와 병렬 처리가 쉬워집니다.
