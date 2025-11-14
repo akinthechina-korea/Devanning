@@ -2,12 +2,10 @@ services:
   - type: web
     name: devanning
     runtime: node
-    env: node
     region: singapore
     plan: free
-    buildCommand: npm install && npm run build && npm run db:push || echo "DB push failed, will retry at runtime"
+    buildCommand: npm install && npm run build
     startCommand: npm start
-    nodeVersion: 22
     envVars:
       - key: NODE_ENV
         value: production
