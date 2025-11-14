@@ -25,18 +25,21 @@ export async function ensureDatabaseInitialized() {
       console.log("🔍 데이터베이스 초기화 확인 중...");
       console.log("✅ DATABASE_URL이 설정되어 있습니다.");
 
-    // users 테이블 존재 확인
+    // 모든 필수 테이블 존재 확인
+    const requiredTables = ['users', 'form_templates', 'inbound_list', 'unipass_cargo_data', 'manifest_results', 'session'];
+    
     const tableCheck = await db.execute(sql`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'users'
-      );
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name = ANY(${requiredTables})
     `);
 
-    const usersTableExists = (tableCheck.rows[0] as any)?.exists;
+    const existingTables = (tableCheck.rows as any[]).map(row => row.table_name);
+    const missingTables = requiredTables.filter(table => !existingTables.includes(table));
 
-    if (!usersTableExists) {
+    if (missingTables.length > 0) {
+      console.log(`⚠️ 누락된 테이블 감지: ${missingTables.join(', ')} → 테이블 생성 중...`);
       console.log("⚠️ 누락된 테이블 감지 → 테이블 생성 중...");
 
       // 먼저 user_role ENUM 타입 생성
@@ -261,7 +264,88 @@ export async function ensureDatabaseInitialized() {
 
       console.log("✅ 모든 테이블이 생성되었습니다.");
     } else {
-      console.log("✅ 데이터베이스 테이블이 이미 존재합니다.");
+      console.log(`✅ 모든 필수 테이블이 존재합니다: ${existingTables.join(', ')}`);
+      
+      // manifest_results 테이블이 없으면 별도로 생성 시도
+      if (!existingTables.includes('manifest_results')) {
+        console.log("⚠️ manifest_results 테이블이 없습니다. 생성 중...");
+        try {
+          await db.execute(sql`
+            CREATE TABLE IF NOT EXISTS manifest_results (
+              id SERIAL PRIMARY KEY,
+              user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+              inbound_list_id INTEGER REFERENCES inbound_list(id) ON DELETE CASCADE,
+              품명 TEXT NOT NULL,
+              수량 TEXT NOT NULL,
+              중량 TEXT,
+              입항일자 TEXT,
+              cont_no TEXT,
+              화물종류 TEXT,
+              dry_wet TEXT,
+              수출국명 TEXT,
+              선명 TEXT,
+              검역사항 TEXT,
+              경유지 TEXT,
+              bl_no TEXT NOT NULL,
+              화물관리번호 TEXT,
+              수입자 TEXT,
+              반입일자 DATE,
+              plt TEXT,
+              bl수량 TEXT,
+              tie TEXT,
+              sell_unit_per_case TEXT,
+              do TEXT,
+              item_no TEXT NOT NULL,
+              수량_pcs TEXT,
+              높이 TEXT,
+              소비기한 TEXT,
+              특이사항 TEXT,
+              costco_bl_no TEXT,
+              매수 TEXT,
+              pallet_qty TEXT,
+              mbl_no TEXT,
+              hbl_no TEXT,
+              cscl_prgs_stts TEXT,
+              prgs_stts TEXT,
+              prcs_dttm TEXT,
+              prnm TEXT,
+              pck_gcnt TEXT,
+              pck_ut TEXT,
+              ttwg TEXT,
+              wght_ut TEXT,
+              msrm TEXT,
+              carg_tp TEXT,
+              ship_nm TEXT,
+              ship_nat_nm TEXT,
+              ship_nat TEXT,
+              shco_flco TEXT,
+              agnc TEXT,
+              vydf TEXT,
+              etpr_dt TEXT,
+              etpr_cstm TEXT,
+              ldpr_nm TEXT,
+              ldpr_cd TEXT,
+              dspr_nm TEXT,
+              dspr_cd TEXT,
+              lod_cnty_cd TEXT,
+              cntr_gcnt TEXT,
+              cntr_no TEXT,
+              bl_pt_nm TEXT,
+              bl_pt TEXT,
+              spcn_carg_cd TEXT,
+              mt_trgt_carg_yn_nm TEXT,
+              rlse_dty_prid_pass_tpcd TEXT,
+              dclr_dely_adtx_yn TEXT,
+              frwr_ents_conm TEXT,
+              source_api TEXT,
+              created_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+          `);
+          console.log("✅ manifest_results 테이블 생성 완료");
+        } catch (error: any) {
+          console.error("❌ manifest_results 테이블 생성 실패:", error?.message || error);
+        }
+      }
     }
 
     // 초기 사용자 데이터 확인 및 추가
