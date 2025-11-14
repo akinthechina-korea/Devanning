@@ -4,7 +4,7 @@ services:
     runtime: node
     region: singapore
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && npm run build && (npm run db:push || npm run db:init || echo "DB initialization will run at runtime")
     startCommand: npm start
     envVars:
       - key: NODE_ENV
@@ -13,5 +13,5 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
-    healthCheckPath: /
+    healthCheckPath: /health
 
