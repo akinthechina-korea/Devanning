@@ -4,14 +4,26 @@ import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
+// 동시 실행 방지를 위한 플래그
+let isInitializing = false;
+let initPromise: Promise<void> | null = null;
+
 /**
  * 런타임 데이터베이스 초기화
  * 배포 시 테이블이 없어도 자동 생성
  */
 export async function ensureDatabaseInitialized() {
-  try {
-    console.log("🔍 데이터베이스 초기화 확인 중...");
-    console.log("✅ DATABASE_URL이 설정되어 있습니다.");
+  // 동시 실행 방지: 이미 초기화 중이면 기존 Promise 반환
+  if (isInitializing && initPromise) {
+    console.log("⏳ 데이터베이스 초기화가 이미 진행 중입니다. 대기 중...");
+    return initPromise;
+  }
+
+  isInitializing = true;
+  initPromise = (async () => {
+    try {
+      console.log("🔍 데이터베이스 초기화 확인 중...");
+      console.log("✅ DATABASE_URL이 설정되어 있습니다.");
 
     // users 테이블 존재 확인
     const tableCheck = await db.execute(sql`
@@ -264,27 +276,49 @@ export async function ensureDatabaseInitialized() {
     let addedCount = 0;
 
     for (const userData of initialUsers) {
-      const [existingUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.username, userData.username))
-        .limit(1);
+      try {
+        const [existingUser] = await db
+          .select()
+          .from(users)
+          .where(eq(users.username, userData.username))
+          .limit(1);
 
-      if (!existingUser) {
-        console.log(`⚠️ 사용자 '${userData.username}' 없음 → 추가 중...`);
-        
-        const passwordHash = await bcrypt.hash(userData.password, 12);
-        
-        await db.insert(users).values({
-          username: userData.username,
-          passwordHash,
-          role: userData.role as any,
-        });
-
-        console.log(`✅ 사용자 추가됨: ${userData.username} (비밀번호: ${userData.password})`);
-        addedCount++;
-      } else {
-        console.log(`✅ 사용자 '${userData.username}' 이미 존재합니다.`);
+        if (!existingUser) {
+          console.log(`⚠️ 사용자 '${userData.username}' 없음 → 추가 중...`);
+          
+          const passwordHash = await bcrypt.hash(userData.password, 12);
+          
+          // INSERT ... ON CONFLICT DO NOTHING으로 중복 방지
+          await db.execute(sql`
+            INSERT INTO users (username, password_hash, role)
+            VALUES (${userData.username}, ${passwordHash}, ${userData.role}::user_role)
+            ON CONFLICT (username) DO NOTHING
+          `);
+          
+          // 다시 확인하여 실제로 추가되었는지 확인
+          const [newUser] = await db
+            .select()
+            .from(users)
+            .where(eq(users.username, userData.username))
+            .limit(1);
+          
+          if (newUser) {
+            console.log(`✅ 사용자 추가됨: ${userData.username} (비밀번호: ${userData.password})`);
+            addedCount++;
+          } else {
+            console.log(`ℹ️ 사용자 '${userData.username}'은(는) 다른 프로세스에 의해 이미 추가되었습니다.`);
+          }
+        } else {
+          console.log(`✅ 사용자 '${userData.username}' 이미 존재합니다.`);
+        }
+      } catch (error: any) {
+        // 중복 키 에러는 무시 (다른 프로세스가 이미 추가했을 수 있음)
+        if (error?.code === '23505') {
+          console.log(`ℹ️ 사용자 '${userData.username}'은(는) 이미 존재합니다 (중복 키 무시).`);
+        } else {
+          console.error(`❌ 사용자 '${userData.username}' 추가 실패:`, error?.message || error);
+          throw error;
+        }
       }
     }
 
@@ -294,16 +328,22 @@ export async function ensureDatabaseInitialized() {
       console.log("✅ 모든 초기 사용자 데이터가 이미 존재합니다.");
     }
 
-    console.log("✅ 데이터베이스 초기화 완료");
-  } catch (error: any) {
-    console.error("❌ 데이터베이스 초기화 실패:", error);
-    console.error("상세 에러:", {
-      message: error?.message,
-      code: error?.code,
-      stack: error?.stack?.split('\n').slice(0, 5).join('\n'),
-    });
-    throw error;
-  }
+      console.log("✅ 데이터베이스 초기화 완료");
+    } catch (error: any) {
+      console.error("❌ 데이터베이스 초기화 실패:", error);
+      console.error("상세 에러:", {
+        message: error?.message,
+        code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 5).join('\n'),
+      });
+      throw error;
+    } finally {
+      isInitializing = false;
+      initPromise = null;
+    }
+  })();
+
+  return initPromise;
 }
 
 // 스크립트로 직접 실행 가능하도록
