@@ -27,6 +27,17 @@ export async function ensureDatabaseInitialized() {
     if (!usersTableExists) {
       console.log("⚠️ 누락된 테이블 감지 → 테이블 생성 중...");
 
+      // 먼저 user_role ENUM 타입 생성
+      console.log("📦 user_role ENUM 타입 생성 중...");
+      await db.execute(sql`
+        DO $$ BEGIN
+          CREATE TYPE user_role AS ENUM ('user', 'admin');
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;
+      `);
+      console.log("✅ user_role ENUM 타입 생성 완료");
+
       // users 테이블 생성
       await db.execute(sql`
         CREATE TABLE IF NOT EXISTS users (
