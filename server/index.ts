@@ -88,36 +88,32 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // 프로덕션 환경에서 데이터베이스 초기화 (비동기, 타임아웃 설정)
+  // 프로덕션 환경에서 데이터베이스 초기화 (서버 시작 전에 완료)
   if (process.env.NODE_ENV === "production") {
-    const initDbWithTimeout = async () => {
-      try {
-        const { ensureDatabaseInitialized } = await import("./init-database");
-        // 30초 타임아웃 설정
-        await Promise.race([
-          ensureDatabaseInitialized(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("DB 초기화 타임아웃")), 30000)
-          )
-        ]);
-      } catch (error: any) {
-        console.error("⚠️ 데이터베이스 초기화 실패 (서버는 계속 실행):", error?.message || error);
-        // 에러가 발생해도 서버는 계속 실행
-      }
-    };
-    // 백그라운드에서 실행 (서버 시작을 막지 않음)
-    initDbWithTimeout();
+    try {
+      console.log("🔧 프로덕션 환경: 데이터베이스 초기화 시작...");
+      const { ensureDatabaseInitialized } = await import("./init-database");
+      // 타임아웃 없이 실행 (최대 60초 대기)
+      await Promise.race([
+        ensureDatabaseInitialized(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("DB 초기화 타임아웃 (60초)")), 60000)
+        )
+      ]);
+      console.log("✅ 데이터베이스 초기화 완료 - 서버 시작");
+    } catch (error: any) {
+      console.error("❌ 데이터베이스 초기화 실패:", error?.message || error);
+      console.error("⚠️ 서버는 계속 실행되지만 데이터베이스 기능이 작동하지 않을 수 있습니다.");
+      // 에러가 발생해도 서버는 계속 실행 (수동으로 초기화 가능)
+    }
   }
 
-  // 초기 관리자 계정 생성 (비동기)
-  const initAdminAsync = async () => {
-    try {
-      await import("./init-admin");
-    } catch (error: any) {
-      console.error("⚠️ 관리자 계정 초기화 실패:", error?.message || error);
-    }
-  };
-  initAdminAsync();
+  // 초기 관리자 계정 생성
+  try {
+    await import("./init-admin");
+  } catch (error: any) {
+    console.error("⚠️ 관리자 계정 초기화 실패:", error?.message || error);
+  }
   
   // Keep-Alive 시작 (프로덕션만)
   if (process.env.NODE_ENV === "production") {
