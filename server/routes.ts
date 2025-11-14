@@ -1256,6 +1256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // 트랜잭션으로 일관성 보장
+      // manifest_results 업데이트는 트랜잭션 밖에서 처리 (실패해도 inbound_list 업데이트는 유지)
       const result = await db.transaction(async (tx) => {
         // 1. 권한 확인 (공유 데이터이지만 자신이 업로드한 것만 수정 가능)
         const existing = await tx.select().from(inboundList)
@@ -1267,9 +1268,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // 2. inbound_list 업데이트
-        await tx.update(inboundList)
+        const updateResult = await tx.update(inboundList)
           .set(updateData as any)
           .where(eq(inboundList.id, id));
+        
+        if (updateResult.rowCount === 0) {
+          throw new Error("UPDATE_FAILED");
+        }
         
         // 3. 업데이트된 데이터 가져오기
         const updated = await tx.select().from(inboundList)
@@ -1280,29 +1285,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           throw new Error("UPDATE_FAILED");
         }
         
-        // 4. manifest_results의 입고리스트 필드 업데이트 (있는 경우만)
-        let manifestUpdated = false;
-        try {
-          const inboundFields = extractInboundFields(updated[0]);
-          const manifestResult = await tx.update(manifestResults)
-            .set(inboundFields)
-            .where(eq(manifestResults.inboundListId, id));
-          manifestUpdated = manifestResult.rowCount ? manifestResult.rowCount > 0 : false;
-        } catch (error: any) {
-          // manifest_results 테이블이 없거나 에러가 발생해도 입고리스트 업데이트는 성공
-          console.warn("⚠️ manifest_results 업데이트 실패 (무시됨):", error?.message || error);
-          manifestUpdated = false;
-        }
-        
-        return {
-          updated: updated[0],
-          manifestUpdated,
-        };
+        // 트랜잭션 커밋 (inbound_list 업데이트는 확실히 저장)
+        return updated[0];
       });
+      
+      // 4. manifest_results 업데이트는 트랜잭션 밖에서 처리 (실패해도 inbound_list는 이미 저장됨)
+      let manifestUpdated = false;
+      try {
+        const inboundFields = extractInboundFields(result);
+        const manifestResult = await db.update(manifestResults)
+          .set(inboundFields)
+          .where(eq(manifestResults.inboundListId, id));
+        manifestUpdated = manifestResult.rowCount ? manifestResult.rowCount > 0 : false;
+      } catch (error: any) {
+        // manifest_results 테이블이 없거나 에러가 발생해도 입고리스트 업데이트는 이미 성공
+        console.warn("⚠️ manifest_results 업데이트 실패 (무시됨):", error?.message || error);
+        manifestUpdated = false;
+      }
       
       res.json({
         success: true,
-        ...result,
+        updated: result,
+        manifestUpdated,
       });
     } catch (error) {
       if (error instanceof Error && error.message === "NOT_FOUND") {
