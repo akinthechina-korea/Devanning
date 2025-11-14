@@ -1281,14 +1281,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // 4. manifest_results의 입고리스트 필드 업데이트 (있는 경우만)
-        const inboundFields = extractInboundFields(updated[0]);
-        const manifestResult = await tx.update(manifestResults)
-          .set(inboundFields)
-          .where(eq(manifestResults.inboundListId, id));
+        let manifestUpdated = false;
+        try {
+          const inboundFields = extractInboundFields(updated[0]);
+          const manifestResult = await tx.update(manifestResults)
+            .set(inboundFields)
+            .where(eq(manifestResults.inboundListId, id));
+          manifestUpdated = manifestResult.rowCount ? manifestResult.rowCount > 0 : false;
+        } catch (error: any) {
+          // manifest_results 테이블이 없거나 에러가 발생해도 입고리스트 업데이트는 성공
+          console.warn("⚠️ manifest_results 업데이트 실패 (무시됨):", error?.message || error);
+          manifestUpdated = false;
+        }
         
         return {
           updated: updated[0],
-          manifestUpdated: manifestResult.rowCount ? manifestResult.rowCount > 0 : false,
+          manifestUpdated,
         };
       });
       
