@@ -40,7 +40,6 @@ export async function ensureDatabaseInitialized() {
 
     if (missingTables.length > 0) {
       console.log(`⚠️ 누락된 테이블 감지: ${missingTables.join(', ')} → 테이블 생성 중...`);
-      console.log("⚠️ 누락된 테이블 감지 → 테이블 생성 중...");
 
       // 먼저 user_role ENUM 타입 생성
       console.log("📦 user_role ENUM 타입 생성 중...");
