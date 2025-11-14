@@ -11,6 +11,7 @@ import bcrypt from "bcrypt";
 export async function ensureDatabaseInitialized() {
   try {
     console.log("🔍 데이터베이스 초기화 확인 중...");
+    console.log("✅ DATABASE_URL이 설정되어 있습니다.");
 
     // users 테이블 존재 확인
     const tableCheck = await db.execute(sql`
@@ -266,9 +267,27 @@ export async function ensureDatabaseInitialized() {
     }
 
     console.log("✅ 데이터베이스 초기화 완료");
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ 데이터베이스 초기화 실패:", error);
+    console.error("상세 에러:", {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack?.split('\n').slice(0, 5).join('\n'),
+    });
     throw error;
   }
+}
+
+// 스크립트로 직접 실행 가능하도록
+if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.includes('init-database')) {
+  ensureDatabaseInitialized()
+    .then(() => {
+      console.log("✅ 데이터베이스 초기화 스크립트 완료");
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error("❌ 데이터베이스 초기화 스크립트 실패:", error);
+      process.exit(1);
+    });
 }
 
