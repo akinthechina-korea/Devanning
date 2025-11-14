@@ -242,28 +242,45 @@ export async function ensureDatabaseInitialized() {
     }
 
     // 초기 사용자 데이터 확인 및 추가
-    const [existingAdmin] = await db
-      .select()
-      .from(users)
-      .where(eq(users.username, "admin"))
-      .limit(1);
+    const initialUsers = [
+      { username: "admin", password: "admin123", role: "admin" },
+      { username: "바바", password: "123", role: "user" },
+      { username: "하재훈", password: "123", role: "user" },
+      { username: "양승화", password: "123", role: "user" },
+    ];
 
-    if (!existingAdmin) {
-      console.log("⚠️ 초기 사용자 데이터 없음 → 추가 중...");
-      
-      const passwordHash = await bcrypt.hash("admin123", 12);
-      
-      await db.insert(users).values({
-        username: "admin",
-        passwordHash,
-        role: "admin",
-      });
+    console.log("🔍 초기 사용자 데이터 확인 중...");
+    let addedCount = 0;
 
-      console.log("✅ 초기 사용자 데이터가 추가됨");
-      console.log("  Username: admin");
-      console.log("  Password: admin123");
+    for (const userData of initialUsers) {
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.username, userData.username))
+        .limit(1);
+
+      if (!existingUser) {
+        console.log(`⚠️ 사용자 '${userData.username}' 없음 → 추가 중...`);
+        
+        const passwordHash = await bcrypt.hash(userData.password, 12);
+        
+        await db.insert(users).values({
+          username: userData.username,
+          passwordHash,
+          role: userData.role as any,
+        });
+
+        console.log(`✅ 사용자 추가됨: ${userData.username} (비밀번호: ${userData.password})`);
+        addedCount++;
+      } else {
+        console.log(`✅ 사용자 '${userData.username}' 이미 존재합니다.`);
+      }
+    }
+
+    if (addedCount > 0) {
+      console.log(`✅ 총 ${addedCount}명의 초기 사용자 데이터가 추가됨`);
     } else {
-      console.log("✅ 초기 사용자 데이터가 이미 존재합니다.");
+      console.log("✅ 모든 초기 사용자 데이터가 이미 존재합니다.");
     }
 
     console.log("✅ 데이터베이스 초기화 완료");
