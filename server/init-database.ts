@@ -346,8 +346,15 @@ export async function ensureDatabaseInitialized() {
   return initPromise;
 }
 
-// 스크립트로 직접 실행 가능하도록
-if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.includes('init-database')) {
+// 스크립트로 직접 실행 가능하도록 (npm run db:init로 실행될 때만)
+// import.meta.url과 process.argv[1]을 비교하여 직접 실행 여부 확인
+const isDirectExecution = import.meta.url === `file://${process.argv[1]}` || 
+                         process.argv[1]?.includes('init-database') ||
+                         process.argv[1]?.endsWith('init-database.ts') ||
+                         process.argv[1]?.endsWith('init-database.js');
+
+if (isDirectExecution && !process.env.RENDER) {
+  // Render 환경이 아니고 직접 실행될 때만 process.exit 호출
   ensureDatabaseInitialized()
     .then(() => {
       console.log("✅ 데이터베이스 초기화 스크립트 완료");
