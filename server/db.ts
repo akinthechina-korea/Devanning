@@ -1,8 +1,9 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@shared/schema";
 // CommonJS 모듈을 ESM에서 import하기 위한 호환성 처리
-import pg from "pg";
-const { Pool } = pg;
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const { Pool } = require("pg");
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set");
