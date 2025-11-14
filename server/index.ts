@@ -88,14 +88,36 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // 프로덕션 환경에서 데이터베이스 초기화
+  // 프로덕션 환경에서 데이터베이스 초기화 (비동기, 타임아웃 설정)
   if (process.env.NODE_ENV === "production") {
-    const { ensureDatabaseInitialized } = await import("./init-database");
-    await ensureDatabaseInitialized();
+    const initDbWithTimeout = async () => {
+      try {
+        const { ensureDatabaseInitialized } = await import("./init-database");
+        // 30초 타임아웃 설정
+        await Promise.race([
+          ensureDatabaseInitialized(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("DB 초기화 타임아웃")), 30000)
+          )
+        ]);
+      } catch (error: any) {
+        console.error("⚠️ 데이터베이스 초기화 실패 (서버는 계속 실행):", error?.message || error);
+        // 에러가 발생해도 서버는 계속 실행
+      }
+    };
+    // 백그라운드에서 실행 (서버 시작을 막지 않음)
+    initDbWithTimeout();
   }
 
-  // 초기 관리자 계정 생성
-  await import("./init-admin");
+  // 초기 관리자 계정 생성 (비동기)
+  const initAdminAsync = async () => {
+    try {
+      await import("./init-admin");
+    } catch (error: any) {
+      console.error("⚠️ 관리자 계정 초기화 실패:", error?.message || error);
+    }
+  };
+  initAdminAsync();
   
   // Keep-Alive 시작 (프로덕션만)
   if (process.env.NODE_ENV === "production") {
@@ -127,11 +149,19 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
+  
+  // Render는 PORT 환경 변수를 제공하므로 반드시 사용해야 함
+  if (!process.env.PORT) {
+    console.warn("⚠️ PORT 환경 변수가 설정되지 않았습니다. 기본값 5000을 사용합니다.");
+  }
+  
+  server.listen(port, "0.0.0.0", () => {
+    log(`✅ 서버가 포트 ${port}에서 실행 중입니다`);
+    console.log(`✅ 서버가 포트 ${port}에서 실행 중입니다`);
+    
+    // 프로덕션 환경에서 데이터베이스 초기화 상태 확인
+    if (process.env.NODE_ENV === "production") {
+      console.log("✅ 데이터베이스 초기화는 백그라운드에서 진행 중입니다...");
+    }
   });
 })();
